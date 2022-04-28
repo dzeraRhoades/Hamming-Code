@@ -7,7 +7,7 @@ class Hamming
 {
 public:
 	void encodingApp(const int argc, const char argv[7][15]);
-	void decodingApp(const int argc, const char** argv);
+	void decodingApp(const int argc, const char argv[7][15]);
 private:
 	int encode(char* source, char* dest, int num);
 	int decode(char* source, char* dest, int num);

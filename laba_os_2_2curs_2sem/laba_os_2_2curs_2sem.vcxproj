@@ -145,6 +145,11 @@
   <ItemGroup>
     <ClInclude Include="Hamming.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="decoded.txt" />
+    <Text Include="input.txt" />
+    <Text Include="output.txt" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

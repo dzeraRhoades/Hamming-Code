@@ -11,6 +11,7 @@ void Hamming::encodingApp(const int argc, const char argv[7][15])
     int count = 0;
     int k = 0;
     char curNum;
+    
     try
     {
         readArgs(argc, argv, input, output, wordLen);
@@ -74,8 +75,96 @@ void Hamming::encodingApp(const int argc, const char argv[7][15])
 
 }
 
-void Hamming::decodingApp(const int argc, const char** argv)
+void Hamming::decodingApp(const int argc, const char argv[7][15])
 {
+    char ch;
+    char input[52];
+    char output[56];
+    int wordLen;
+    int count = 0;
+    int k = 0;
+    char curNum;
+
+    try
+    {
+        readArgs(argc, argv, input, output, wordLen);
+    }
+    catch (const std::exception&)
+    {
+        std::cerr << "wrong command line arguments" << std::endl;
+        return;
+    }
+    std::ifstream fin(input);
+  
+    if (!fin.is_open())
+    {
+        std::cerr << "input file can't be opened";
+        return;
+    }
+    std::ofstream fout(output);
+    if (!fout.is_open())
+    {
+        std::cerr << "output file can't be opened";
+        return;
+    }
+
+    int codeSize = wordLen + controlBits(wordLen) + 1;
+    char word[256];
+    char code[256];
+    memset(word, 0, 256);
+    memset(code, 0, 256);
+
+    while ((ch = fin.get()) != EOF)
+    {
+        if (isspace(ch))
+            continue;
+        k += (count / 8);
+        count %= 8;
+        curNum = (1 & (ch - '0')) << (7 - count);
+        code[k] |= curNum; // записываем очередной бит в слово
+        count++;
+        if (k * 8 + count == codeSize)
+        {
+            try
+            {
+                decode(code, word, wordLen);
+            }
+            catch (const std::exception&)
+            {
+                std::cout << "folowing code has more than 1 error: ";
+                showBinary(code, codeSize);
+                fin.close();
+                fout.close();
+                return;
+            }
+            fout << getBinaryString(word, wordLen);
+            memset(word, 0, 256);
+            memset(code, 0, 256);
+            k = 0;
+            count = 0;
+        }
+    }
+    if (k != 0 || count != 0) // кодируем оставшийс€ кусок
+    {
+        try
+        {
+            decode(code, word, count + k * 8 - logb(count + k * 8) - 2);
+        }
+        catch (const std::exception&)
+        {
+            std::cout << "folowing code has more than 1 error: ";
+            showBinary(code, codeSize);
+            fin.close();
+            fout.close();
+            return;
+        }
+        fout << getBinaryString(word, (count + k * 8 - logb(count + k * 8) - 2));
+    }
+    fin.close();
+    fout.close();
+    // TODO: считываем аргументы командной строки с помощью ф-и
+    // «аполн€ем два массива нул€ми, а затем кидаем в функцию декодировани€
+    // ƒоприсываем функцию декодировани€ так, чтобы она обрабатывала еще последний бит
 }
 
 int Hamming::encode(char* source, char* dest, int num)
@@ -125,11 +214,47 @@ int Hamming::decode(char* source, char* dest, int num)
     //int dest_size = num + controlBits(num);
     int j = 0, i = 0;
 
-    char* tmp = new char[(full_size - 1) / 8 + 1];
+    char tmp[256];
+    memset(tmp, 0, 256);
     for (; i < (full_size - 1) / 8 + 1; i++)
         tmp[i] = 0;
     i = 0;
 
+    while (i + k1 * 8 < full_size)
+    {
+        k1 += (i / 8);
+        i %= 8;
+
+        if (i + 1 + k1 * 8 != pow(2, deg))
+        {
+            setBit(source + k1, tmp + k1, i + 1, i + 1);
+        }
+        else
+            deg++;
+        i++;
+    }
+    // TODO: set control bits of tmp and compare it with source by xor, if 0 - it's ok
+    showBinary(source, full_size + 1);
+    //showBinary(tmp, full_size);
+    //showBinary(dest, num);
+
+    k1 = 0;
+    for (i = 0; i < controlBits(num); i++)
+    {
+        setControlBit(tmp, i, full_size);
+        //showBinary(dest, num + controlBits(num));
+    }
+    k1 = full_size / 8;
+    //showBinary(tmp, full_size + 1);
+    if (((source[k1] >> (7 - full_size % 8)) & 1) == (sumAllBits(source, full_size)))
+    {
+        if (compareControlBits(source, tmp, controlBits(num)))
+            throw std::exception("more then 1 error!!!"); // 2 errors
+    }
+    else
+        compareControlBits(source, tmp, controlBits(num)); // 1 error
+
+    i = 0; k1 = 0, deg = 0;
     while (i + k1 * 8 < full_size)
     {
         k1 += (i / 8);
@@ -140,27 +265,12 @@ int Hamming::decode(char* source, char* dest, int num)
         if (i + 1 + k1 * 8 != pow(2, deg))
         {
             setBit(source + k1, dest + k2, i + 1, j + 1);
-            setBit(source + k1, tmp + k1, i + 1, i + 1);
             j++;
         }
         else
             deg++;
         i++;
     }
-    // TODO: set control bits of tmp and compare it with source by xor, if 0 - it's ok
-    showBinary(source, full_size);
-    showBinary(tmp, full_size);
-    showBinary(dest, num);
-
-    k1 = 0;
-    for (i = 0; i < controlBits(num); i++)
-    {
-        setControlBit(tmp, i, full_size);
-        //showBinary(dest, num + controlBits(num));
-    }
-    if (compareControlBits(source, tmp, controlBits(num)))
-        std::cout << "uncorrect" << std::endl;
-    delete[] tmp;
     return 0;
 }
 
@@ -230,14 +340,15 @@ int Hamming::compareControlBits(char* source, char* correct, int cb)
     {
         move = pow(2, i);
         k = (move - 1) / 8;
-        if ((source[k] >> move & 1) ^ (correct[k] >> move & 1))
+        if ((source[k] >> (8-move) & 1) ^ (correct[k] >> (8-move) & 1))
             error_bit += move;
     }
     if (error_bit)
     {
+        k = cb / 8;
         k = (error_bit - 1) / 8;
         move = 8 - ((error_bit - 1) % 8) - 1;
-        source[k] ^= ((source[k] >> move & 1) << move); // setting correct bit
+        source[k] ^= (1 << move); // setting correct bit
         return 1;
     }
     return 0;
